@@ -1,0 +1,387 @@
+AIMS FILE FORMAT DOCUMENTATION ISSUES
+Sources consulted:
+  - AIMS 500 V5.1 File Format Requirements 2020.xlsx (official spec)
+  - Vendor sample files: Closed Loop, Audit Mode, Late Diverts folders
+  - Technical Bulletins: aims000 through AIMS011
+  - AIMS 100-500 Technical Training Course v71220 04172025.pptx (April 2025)
+Date reviewed: 2026-05-18
+================================================================================
+
+
+CRITICAL ERRORS (wrong information in current docs)
+================================================================================
+
+1. JCF BODY - Field at positions 22-23 mislabeled as "Piece document count"
+   -------------------------------------------------------------------------
+   The current docs label this 2-character field as "Piece document count".
+   Per the official spec, sample data, and training course, this is the
+   DISPOSITION CODE.
+
+   The value "40" in all successful JCF sample records = Inserted.
+   The value "10" in the JRF sample records = Failed/Oversized/Voided.
+
+   Correct JCF Disposition Codes (per official spec):
+     40 = Inserted (successfully processed)
+     20 = Diverted (Commanded or Late)
+     30 = Hand Mailed
+
+   The Python parser snippet in the same doc correctly labels this field
+   "disp_code" - so the field layout table and the code directly contradict
+   each other. The code is correct; the table is wrong.
+
+
+2. JCF BODY - "Piece hash / checksum" and "Reserved / unknown" are both wrong
+   -------------------------------------------------------------------------
+   The docs split positions 43-75 into two mystery fields:
+     - "Piece hash / checksum" at positions 43-50 (8 chars)
+     - "Reserved / unknown" at positions 51-75 (25 chars)
+
+   Per the official spec and training slides, this is a single field:
+     CUSTOMER ID at position 43, length 32 (positions 43-74)
+
+   The "hash-like" value (e.g. "588e973a") in the sample IS the Customer ID
+   for that mailpiece - it just looks like a hash because of how that
+   particular job generated its identifiers. The trailing spaces are field
+   padding to fill the 32-character width. Both rows in the layout table
+   should be replaced with a single "Customer ID" row (32 chars).
+
+   The Python parser already correctly extracts this as:
+     customer_id = f(line, 43, 32)   # pos 43, len 32
+   The code is correct; the table is wrong.
+
+   The warning note ("customer_id may contain a hash/checksum value") should
+   be removed - the field is always Customer ID.
+
+
+3. JCF DISPOSITION CODE TABLE - wrong codes listed
+   -------------------------------------------------------------------------
+   The docs show these codes (which are completely wrong for JCF):
+     00 = Successfully processed
+     01 = Diverted / not inserted
+     02 = Reprint required
+
+   None of these codes appear in JCF files. Correct JCF codes are 20, 30, 40
+   (see issue 1). The codes 00, 01, and 10 belong to the JRF, not the JCF
+   (see issue 8 for correct JRF codes).
+
+
+4. JCF BODY - Counter block: wrong start position and missing field breakdown
+   -------------------------------------------------------------------------
+   Current docs: counter block labeled as Python slice [75:121] (46 chars).
+   Official spec: Total Prime Documents starts at 1-based position 75
+                  = 0-based index 74, so the slice should be [74:121] (47 chars).
+                  The docs are off by one - they miss the first byte.
+
+   Note: The Customer ID field (32 chars) ends at 1-based position 74
+   (0-based index 73, slice [42:74]). Total Prime Documents immediately
+   follows at 1-based position 75 (0-based index 74).
+
+   Full counter block breakdown (confirmed by both spec and training slides):
+
+     1-based  Length  Field
+     -------  ------  -----
+      75        3     Total Prime Documents (number of sheets from prime station)
+      78        2     Feeder 1 Count  (number of sheets actually fed)
+      80        2     Feeder 2 Count
+      82        2     Feeder 3 Count
+      84        2     Feeder 4 Count
+      86        2     Feeder 5 Count
+      88        2     Feeder 6 Count
+      90        2     Feeder 7 Count
+      92        2     Feeder 8 Count
+      94        2     Feeder 9 Count
+      96        2     Feeder 10 Count
+      98        2     Feeder 11 Count
+     100        2     Feeder 12 Count
+     102        2     Feeder 13 Count
+     104        2     Feeder 14 Count
+     106        2     Feeder 15 Count
+     108        2     Feeder 16 Count
+     110        1     Envelope Divert 1  (1=Yes, 0=No)
+     111        1     Envelope Divert 2
+     112        1     Envelope Divert 3
+     113        1     Form Divert 1
+     114        1     Form Divert 2
+     115        1     Franker 1
+     116        1     Franker 2
+     117        1     Halt
+     118        1     Ink Mark 1 / Jog
+     119        1     Ink Mark 2 / Pulse Conveyor
+     120        1     No Seal
+     121        1     Auto End
+
+   Note: JCF feeder counts are 2 characters each (numeric count of sheets
+   actually inserted). JAF feeder counts are 1 character each (yes/no flag).
+
+
+5. JCF BODY - Positions 472-621 labeled "Reserved / blank"
+   -------------------------------------------------------------------------
+   These 150 characters are NOT reserved. Per the spec and training slides
+   they are User Fields 1-3:
+
+     1-based  Length  Field
+     -------  ------  -----
+     472        50    User Field 1
+     522        50    User Field 2
+     572        50    User Field 3
+
+   These fields are already correctly listed in the CSV output columns section
+   of the same document; they are only wrong in the field layout table.
+
+
+6. JCF BODY - Position 622 labeled "Divert / status flag"
+   -------------------------------------------------------------------------
+   The official name for this field is "Full Format Pack Divert" (FFPD).
+   Format: 1 = Yes, 0 = No.
+   This feature was added in AIMS V2.1 (October 2013, TB aims001).
+
+
+INCOMPLETE / MISSING INFORMATION
+================================================================================
+
+7. JCF HEADER - Position 12-30 labeled "Padding / blank"
+   -------------------------------------------------------------------------
+   Per the official spec and training slides (slide 175), this field is the
+   SLA Date/Time. It appears blank in the sample files only because SLA
+   monitoring was not configured for those jobs.
+
+   This field IS actively used: if the JAF file includes an SLA Date/Time
+   in the header, AIMS uses it to monitor jobs at risk of missing their SLA.
+   ("SLA Monitoring" is a feature in AIMS Closed Loop mode.)
+
+   The Python parser already correctly names this field "job_sla_dt".
+
+   Complete JCF and JRF Header layout (confirmed by spec and training slides):
+
+     1-based  Length  Field
+     -------  ------  -----
+      1         1     Header Marker ("H")
+      2        10     Job ID
+     12        19     SLA Date/Time   (format: YYYY-MM-DD hh:mm:ss, spaces if not used)
+     31        19     Creation Date/Time
+
+
+8. JRF FORMAT - Incorrectly described as "mirrors the JAF"
+   -------------------------------------------------------------------------
+   The JRF is its own file format. It does NOT mirror the JAF.
+
+   JRF header matches the JCF header (H marker, Job ID, SLA Date, Creation Date).
+
+   JRF body format (confirmed by spec and sample files):
+
+     1-based  Length  Field
+     -------  ------  -----
+      1         1     Body Marker ("B")
+      2        10     Job ID
+     12        10     Mail Piece ID
+     22         2     Disposition Code
+     24        19     Timestamp
+
+   JRF Disposition Codes (different from JCF codes - confirmed by spec):
+     00 = Unread
+     01 = In Process
+     10 = Failed / Oversized / Voided
+
+   Audit Mode JRF omits the H/B markers (see issue 10).
+
+
+9. JAF CLASSIC FIXED-WIDTH FORMAT - completely absent from documentation
+   -------------------------------------------------------------------------
+   The docs only cover the AIMS360 JSON simulator JAF format. The production
+   fixed-width JAF format is not documented at all.
+
+   JAF Header (confirmed by spec and training slide 100):
+
+     1-based  Length  Field
+     -------  ------  -----
+      1         1     Header Marker ("H")
+      2        10     Job ID
+     12        19     SLA Date/Time     (spaces if not used)
+     31        19     Creation Date/Time (spaces if not used)
+     50        32     Job Name           (spaces if not used)
+     82        20     IMOS Job Name      (spaces if not used)
+
+   Note: If the IMOS Job Name is present in the JAF header, AIMS verifies
+   that it matches the IMOS Job Name on the folder inserter at connection
+   time. (Confirmed by TB aims003, V3.0 features.)
+
+   JAF Body (confirmed by spec and training slides 100-104):
+
+     1-based  Length  Field
+     -------  ------  -----
+      1         1     Body Marker ("B")
+      2        10     Job ID
+     12        10     Mail Piece ID
+     22        32     Customer ID            (spaces if not used)
+     54         3     Total Prime Documents  (number of sheets from prime station)
+     57         1     Feeder 1 Count         (1=feed, 0=do not feed)
+     58         1     Feeder 2 Count
+     59         1     Feeder 3 Count
+     60         1     Feeder 4 Count
+     61         1     Feeder 5 Count
+     62         1     Feeder 6 Count
+     63         1     Feeder 7 Count
+     64         1     Feeder 8 Count
+     65         1     Feeder 9 Count
+     66         1     Feeder 10 Count
+     67         1     Feeder 11 Count
+     68         1     Feeder 12 Count
+     69         1     Feeder 13 Count
+     70         1     Feeder 14 Count
+     71         1     Feeder 15 Count
+     72         1     Feeder 16 Count
+     73         1     Envelope Divert 1      (1=action, 0=no action)
+     74         1     Envelope Divert 2
+     75         1     Envelope Divert 3
+     76         1     Form Divert 1
+     77         1     Form Divert 2
+     78         1     Franker 1
+     79         1     Franker 2
+     80         1     Halt
+     81         1     Ink Mark 1 / Jog
+     82         1     Ink Mark 2 / Pulse Conveyor
+     83         1     No Seal
+     84         1     Auto End
+     85        50     Full Name              (spaces if not used)
+    135        50     Organization
+    185        50     Address Line 1
+    235        50     Address Line 2
+    285        50     Address Line 3
+    335        50     Address Line 4
+    385        50     Postal Code
+    435        50     User Field 1
+    485        50     User Field 2
+    535        50     User Field 3
+    585         1     Full Format Pack Divert (1=Yes, 0=No)
+    586       414     FILLER (spaces)
+
+   --- DEP (Dynamic Envelope Printer) section (starts at position 1001) ---
+   Used when AIMS stores addressing data for the Dynamic Envelope Printer.
+   Fields after the last field in use need not be filled.
+
+     1001      25     DEP Title
+     1026      25     DEP First Name
+     1051      25     DEP Surname
+     1076      50     DEP Return Address Line 1
+     1126      50     DEP Return Address Line 2
+     1176      50     DEP Return Address Line 3
+     1226      50     DEP Return Address Line 4
+     1276      50     DEP Return Address Line 5
+     1326     200     DEP User Field 1
+     1526     200     DEP User Field 2
+     1726     200     DEP User Field 3
+     1926     200     DEP User Field 4
+     2126     200     DEP User Field 5
+     2326     200     DEP Image Reference 1  (file path for image to print on envelope)
+     2526     200     DEP Image Reference 2
+     2726     200     DEP Image Reference 3
+     2926     200     DEP Image Reference 4
+     3126     200     DEP Image Reference 5
+
+   JAF Rules (from training slide 100):
+   - The Job ID must match the filename (e.g. 31CD77GGBW.jaf)
+   - Every field must be filled with data, 0s (numeric) or spaces (alpha/AN)
+     EXCEPT fields after the last field in use need not be filled
+   - Every JAF must have exactly one "H" header line
+   - Every mailpiece must have its own unique "B" body line
+   - Date format: "YYYY-MM-DD hh:mm:ss"
+
+
+10. AUDIT MODE FORMAT - not mentioned anywhere in documentation
+    -------------------------------------------------------------------------
+    The vendor sample files include Audit Mode JCF and JRF files with a
+    completely different structure from Closed Loop mode.
+
+    Audit Mode is used when AIMS verifies piece counts "on the fly" without
+    a pre-loaded JAF checklist. Jobs are created in AIMS as barcodes are
+    scanned. No pre-validation of recipient data occurs.
+
+    Audit Mode file structure differences:
+    - NO H/B record markers (records identified by position only)
+    - NO hash / Customer ID field
+    - NO address fields (Full Name, Organization, Address Lines, etc.)
+    - Header line: Job ID only (10 characters)
+    - Body line: Job ID (10) + Piece ID (10) + Disposition Code (2)
+                 + Timestamp (19) + Counter block
+
+    Note: In Audit Mode, the MailPiece ID length can be configured to be
+    greater than 10 characters if required. (TB aims008, V4.0.2)
+
+    Audit Mode can also generate JRF and JCF output files where AIMS is
+    licensed to export files. (TB aims005, V3.1)
+
+
+11. TRIGGER FILES - an entire category of file types is undocumented
+    -------------------------------------------------------------------------
+    AIMS uses trigger files to allow external systems (OMS) to remotely
+    control jobs without a direct network connection. Three trigger file
+    types exist (training slide 110):
+
+    .TRF = Trigger Reprint File
+      Purpose: Remotely requests AIMS to generate a JRF for a job.
+      Format:  Empty file named JobId.trf (e.g. 31CD77GGBW.trf)
+
+    .LDF = Trigger Late Diverts File
+      Purpose: Remotely requests that specific mailpieces within a job
+               are marked for Late Divert in AIMS.
+      Format:  JobId.ldf containing a list of Mailpiece IDs (one per line,
+               10 characters each). Example from vendor sample:
+                 0000000005
+                 0000000007
+                 0000000008
+
+    .TCF = Trigger Close File
+      Purpose: Sent by OMS-500 to remotely close a job in AIMS. Sent if
+               the user forces a job closed in OMS-500 before it is closed
+               in AIMS. Added in AIMS V5.0 (TB aims009).
+      Format:  Empty file named JobId.tcf (e.g. 31CD77GGBW.tcf)
+
+    Note: The LDF file in the vendor "Late Diverts" sample folder is an
+    INPUT trigger file sent TO AIMS, not an output report of what was diverted.
+    Late Divert functionality was first added in AIMS V3.0 (TB aims003).
+
+
+12. ADDITIONAL OUTPUT FILE TYPES - not documented
+    -------------------------------------------------------------------------
+    Beyond the JAF/JRF/JCF, AIMS can generate several other output files
+    (training slide 111). None of these are mentioned in aims-file-formats.md:
+
+    .JPF = Job Progress File
+      AIMS creates this at regular intervals showing mailpiece changes since
+      the last JPF was written. Can be appended to the same file or generate
+      a new file each time.
+      Format: JobId.jpf
+      Configured in OMS Configuration Wizard (page 3 of 8).
+
+    .JGF = Job Good Envelopes File
+      Created at Job close. Contains only the mailpieces that successfully
+      reached their intended destination (including Hand Mailed pieces).
+      Format: JobId.jgf
+
+    .JMF = Job Missed Mailpieces File
+      Created at Job close. Contains only the mailpieces that were never
+      seen by AIMS at all (not processed, not hand-mailed).
+      Format: JobId.jmf
+      Configured in OMS Configuration Wizard (page 7 of 8).
+
+    .JUF = Job Update File
+      An INPUT file (not output). Allows importing updated information
+      for mailpieces already in AIMS. Implemented as a special request
+      for specific customers (Belgium and Switzerland).
+      Format: JobId.juf
+
+    .ERR = Error File
+      Created by AIMS in the JAF import folder if a JAF fails to import.
+      Contains the reason for the import failure.
+      Format: JobId.err (alongside the original .jaf file)
+
+
+================================================================================
+END OF ISSUES LIST
+Total issues identified: 12 groups (6 critical errors, 6 missing/incomplete)
+Reference sources:
+  - AIMS 500 V5.1 File Format Requirements 2020.xlsx
+  - Vendor sample files (Closed Loop, Audit Mode, Late Diverts)
+  - Technical Bulletins aims000-AIMS011 (2013-2016)
+  - AIMS Technical Training Course v71220 (April 2025, slides 100-125)
+================================================================================
