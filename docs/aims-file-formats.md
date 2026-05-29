@@ -13,7 +13,9 @@ Run Data File). See `aims-mrdf-reference.md` for the terminology mapping.
 - OMS (Inspire/Automate) holds PII; JAF carries only IDs and machine control instructions
 - Dropped into the AIMS watched folder (FileDrop or jaf-input) for database ingestion
 
-### JAF Field Layout (OMS Integration v2.0 — authoritative from AIMS UI)
+---
+
+### JAF Field Layout — OMS Integration v2.0 (extended format)
 
 > This layout uses the v2.0 extended format. User Fields are **250 chars** (not 50 as in the standard v5.1 spec). Source: live AIMS500 configuration screen.
 
@@ -99,7 +101,106 @@ Run Data File). See `aims-mrdf-reference.md` for the terminology mapping.
 | DEP Image Reference 4 | 3163 | 200 |
 | DEP Image Reference 5 | 3363 | 200 |
 
-> The JRF shares this same layout. The JCF shares this layout and adds Result variants of Account, Cost Center, SLA Date, and Header User Fields 1–3 to the header.
+---
+
+### JAF Field Layout — Standard v5.1 Spec (classic fixed-width format)
+
+> This is the base format per the AIMS 500 V5.1 File Format Requirements spec and training slides. User Fields are **50 chars** each. The v2.0 format above is an extended variant used in newer OMS integrations.
+
+#### JAF Header (record type `H`)
+
+| 1-based Pos | Length | Field | Notes |
+|---|---|---|---|
+| 1 | 1 | Record Marker | `H` |
+| 2 | 10 | Job ID | Must match filename (e.g. `31CD77GGBW.jaf`) |
+| 12 | 19 | SLA Date/Time | `YYYY-MM-DD hh:mm:ss`; spaces if not used |
+| 31 | 19 | Creation Date/Time | `YYYY-MM-DD hh:mm:ss`; spaces if not used |
+| 50 | 32 | Job Name | Spaces if not used |
+| 82 | 20 | IMOS Job Name | If present, AIMS verifies match at connection time |
+
+> If the IMOS Job Name is populated in the JAF header, AIMS will verify that it matches the IMOS Job Name on the folder inserter at connection time. (TB aims003, V3.0)
+
+#### JAF Body (record type `B`, one per mailpiece)
+
+| 1-based Pos | Length | Field | Notes |
+|---|---|---|---|
+| 1 | 1 | Record Marker | `B` |
+| 2 | 10 | Job ID | |
+| 12 | 10 | Mail Piece ID | |
+| 22 | 32 | Customer ID | Spaces if not used |
+| 54 | 3 | Total Prime Documents | Number of sheets from prime station |
+| 57 | 1 | Feeder 1 Count | 1=feed, 0=do not feed |
+| 58 | 1 | Feeder 2 Count | |
+| 59 | 1 | Feeder 3 Count | |
+| 60 | 1 | Feeder 4 Count | |
+| 61 | 1 | Feeder 5 Count | |
+| 62 | 1 | Feeder 6 Count | |
+| 63 | 1 | Feeder 7 Count | |
+| 64 | 1 | Feeder 8 Count | |
+| 65 | 1 | Feeder 9 Count | |
+| 66 | 1 | Feeder 10 Count | |
+| 67 | 1 | Feeder 11 Count | |
+| 68 | 1 | Feeder 12 Count | |
+| 69 | 1 | Feeder 13 Count | |
+| 70 | 1 | Feeder 14 Count | |
+| 71 | 1 | Feeder 15 Count | |
+| 72 | 1 | Feeder 16 Count | |
+| 73 | 1 | Envelope Divert 1 | 1=action, 0=no action |
+| 74 | 1 | Envelope Divert 2 | |
+| 75 | 1 | Envelope Divert 3 | |
+| 76 | 1 | Form Divert 1 | |
+| 77 | 1 | Form Divert 2 | |
+| 78 | 1 | Franker 1 | |
+| 79 | 1 | Franker 2 | |
+| 80 | 1 | Halt | |
+| 81 | 1 | Ink Mark 1 / Jog | |
+| 82 | 1 | Ink Mark 2 / Pulse Conveyor | |
+| 83 | 1 | No Seal | |
+| 84 | 1 | Auto End | |
+| 85 | 50 | Full Name | Spaces if not used |
+| 135 | 50 | Organization | |
+| 185 | 50 | Address Line 1 | |
+| 235 | 50 | Address Line 2 | |
+| 285 | 50 | Address Line 3 | |
+| 335 | 50 | Address Line 4 | |
+| 385 | 50 | Postal Code | |
+| 435 | 50 | User Field 1 | |
+| 485 | 50 | User Field 2 | |
+| 535 | 50 | User Field 3 | |
+| 585 | 1 | Full Format Pack Divert | 1=Yes, 0=No |
+| 586 | 414 | Filler | Spaces |
+
+**DEP section** (starts at position 1001 — used when AIMS stores addressing data for the Dynamic Envelope Printer; fields after the last field in use need not be filled):
+
+| 1-based Pos | Length | Field |
+|---|---|---|
+| 1001 | 25 | DEP Title |
+| 1026 | 25 | DEP First Name |
+| 1051 | 25 | DEP Surname |
+| 1076 | 50 | DEP Return Address Line 1 |
+| 1126 | 50 | DEP Return Address Line 2 |
+| 1176 | 50 | DEP Return Address Line 3 |
+| 1226 | 50 | DEP Return Address Line 4 |
+| 1276 | 50 | DEP Return Address Line 5 |
+| 1326 | 200 | DEP User Field 1 |
+| 1526 | 200 | DEP User Field 2 |
+| 1726 | 200 | DEP User Field 3 |
+| 1926 | 200 | DEP User Field 4 |
+| 2126 | 200 | DEP User Field 5 |
+| 2326 | 200 | DEP Image Reference 1 |
+| 2526 | 200 | DEP Image Reference 2 |
+| 2726 | 200 | DEP Image Reference 3 |
+| 2926 | 200 | DEP Image Reference 4 |
+| 3126 | 200 | DEP Image Reference 5 |
+
+**JAF Rules:**
+- The Job ID must match the filename (e.g. `31CD77GGBW.jaf`)
+- Every field must be filled with data, `0`s (numeric fields) or spaces (alpha/AN fields), EXCEPT fields after the last field in use need not be filled
+- Every JAF must have exactly one `H` header line
+- Every mailpiece must have its own unique `B` body line
+- Date format: `YYYY-MM-DD hh:mm:ss`
+
+> **JAF feeder counts are 1-character flags (1=feed, 0=no feed). JCF feeder counts are 2-character numeric counts of sheets actually inserted.** These are different fields with different semantics and different lengths.
 
 ---
 
@@ -128,47 +229,75 @@ fixed-width flat file with one header line and one body line per mailpiece.
 
 ### JCF Field Layout
 
-*Reverse-engineered from sample file `5450D6E900.jcf`*
-
 #### Header Line (marker = `H`)
 
-| Python Slice | Length | Field |
-|--------------|--------|-------|
-| `[0]` | 1 | Record marker: `H` |
-| `[1:11]` | 10 | Job ID |
-| `[11:30]` | 19 | Padding / blank |
-| `[30:49]` | 19 | Job start timestamp (`YYYY-MM-DD HH:MM:SS`) |
+| Python Slice | Length | Field | Notes |
+|---|---|---|---|
+| `[0]` | 1 | Record marker | `H` |
+| `[1:11]` | 10 | Job ID | |
+| `[11:30]` | 19 | SLA Date/Time | `YYYY-MM-DD HH:MM:SS`; blank if SLA monitoring not configured |
+| `[30:49]` | 19 | Creation Date/Time | `YYYY-MM-DD HH:MM:SS` |
 
 #### Body Line (marker = `B`, one per mailpiece)
 
-| Python Slice | Length | Field |
-|--------------|--------|-------|
-| `[0]` | 1 | Record marker: `B` |
-| `[1:11]` | 10 | Job ID |
-| `[11:21]` | 10 | Piece ID (MailPieceID) |
-| `[21:23]` | 2 | Piece document count |
-| `[23:42]` | 19 | Piece completion timestamp (`YYYY-MM-DD HH:MM:SS`) |
-| `[42:50]` | 8 | Piece hash / checksum |
-| `[50:75]` | 25 | Reserved / unknown |
-| `[75:121]` | 46 | Counter block (feeder/insert counts) |
-| `[121:171]` | 50 | Full name |
-| `[171:221]` | 50 | Organization |
-| `[221:271]` | 50 | Address Line 1 |
-| `[271:321]` | 50 | Address Line 2 |
-| `[321:371]` | 50 | Address Line 3 |
-| `[371:421]` | 50 | Address Line 4 |
-| `[421:471]` | 50 | Postal / State + ZIP |
-| `[471:621]` | 150 | Reserved / blank |
-| `[621]` | 1 | Divert / status flag |
+| Python Slice | Length | Field | Notes |
+|---|---|---|---|
+| `[0]` | 1 | Record marker | `B` |
+| `[1:11]` | 10 | Job ID | |
+| `[11:21]` | 10 | Mail Piece ID | |
+| `[21:23]` | 2 | Disposition Code | See table below |
+| `[23:42]` | 19 | Completion Timestamp | `YYYY-MM-DD HH:MM:SS` |
+| `[42:74]` | 32 | Customer ID | Spaces if not used |
+| `[74:77]` | 3 | Total Prime Documents | Sheets fed from prime station |
+| `[77:79]` | 2 | Feeder 1 Count | Sheets actually inserted |
+| `[79:81]` | 2 | Feeder 2 Count | |
+| `[81:83]` | 2 | Feeder 3 Count | |
+| `[83:85]` | 2 | Feeder 4 Count | |
+| `[85:87]` | 2 | Feeder 5 Count | |
+| `[87:89]` | 2 | Feeder 6 Count | |
+| `[89:91]` | 2 | Feeder 7 Count | |
+| `[91:93]` | 2 | Feeder 8 Count | |
+| `[93:95]` | 2 | Feeder 9 Count | |
+| `[95:97]` | 2 | Feeder 10 Count | |
+| `[97:99]` | 2 | Feeder 11 Count | |
+| `[99:101]` | 2 | Feeder 12 Count | |
+| `[101:103]` | 2 | Feeder 13 Count | |
+| `[103:105]` | 2 | Feeder 14 Count | |
+| `[105:107]` | 2 | Feeder 15 Count | |
+| `[107:109]` | 2 | Feeder 16 Count | |
+| `[109]` | 1 | Envelope Divert 1 | 1=Yes, 0=No |
+| `[110]` | 1 | Envelope Divert 2 | |
+| `[111]` | 1 | Envelope Divert 3 | |
+| `[112]` | 1 | Form Divert 1 | |
+| `[113]` | 1 | Form Divert 2 | |
+| `[114]` | 1 | Franker 1 | |
+| `[115]` | 1 | Franker 2 | |
+| `[116]` | 1 | Halt | |
+| `[117]` | 1 | Ink Mark 1 / Jog | |
+| `[118]` | 1 | Ink Mark 2 / Pulse Conveyor | |
+| `[119]` | 1 | No Seal | |
+| `[120]` | 1 | Auto End | |
+| `[121:171]` | 50 | Full Name | |
+| `[171:221]` | 50 | Organization | |
+| `[221:271]` | 50 | Address Line 1 | |
+| `[271:321]` | 50 | Address Line 2 | |
+| `[321:371]` | 50 | Address Line 3 | |
+| `[371:421]` | 50 | Address Line 4 | |
+| `[421:471]` | 50 | Postal Code | |
+| `[471:521]` | 50 | User Field 1 | |
+| `[521:571]` | 50 | User Field 2 | |
+| `[571:621]` | 50 | User Field 3 | |
+| `[621]` | 1 | Full Format Pack Divert | 1=Yes, 0=No. Added V2.1 (TB aims001) |
 
 ### JCF Disposition Codes
 
 | Code | Meaning |
 |------|---------|
-| `00` | Successfully processed |
-| `01` | Diverted / not inserted |
-| `02` | Reprint required |
-| Other | Refer to AIMS documentation for extended codes |
+| `40` | Inserted (successfully processed) |
+| `20` | Diverted (Commanded or Late) |
+| `30` | Hand Mailed |
+
+> These codes are specific to the JCF. JRF disposition codes are different — see JRF section below.
 
 ### Python Parser — 1-based field extraction helper
 
@@ -179,7 +308,7 @@ def f(line, start, length):
 
 # Header
 job_id          = f(line,  2, 10)   # pos 2, len 10
-job_sla_dt      = f(line, 12, 19)   # pos 12, len 19
+job_sla_dt      = f(line, 12, 19)   # pos 12, len 19 (blank if SLA not configured)
 job_creation_dt = f(line, 31, 19)   # pos 31, len 19
 
 # Body
@@ -193,12 +322,103 @@ customer_id     = f(line, 43, 32)   # pos 43, len 32
 
 ## JRF — Job Reprint File
 
-Generated automatically when AIMS detects missing or failed pieces. Contains
-the subset of pieces requiring reprinting.
+Generated automatically when AIMS detects missing or failed pieces, or on demand
+via a `.trf` trigger file (see Trigger Files below). Contains only the subset of
+pieces requiring reprinting.
 
-- Shares the DocSecure `export` folder path with the JCF
-- Format mirrors the JAF — same record-per-piece structure for reprint jobs
-- AIMS creates reprint files; they must be processed through OMS like a new run
+The JRF is **its own file format** — it does not mirror the JAF. AIMS creates
+reprint files; they must be processed through OMS like a new run.
+
+### JRF Field Layout
+
+#### Header Line (marker = `H`)
+
+Identical to the JCF header:
+
+| Python Slice | Length | Field | Notes |
+|---|---|---|---|
+| `[0]` | 1 | Record marker | `H` |
+| `[1:11]` | 10 | Job ID | |
+| `[11:30]` | 19 | SLA Date/Time | `YYYY-MM-DD HH:MM:SS`; blank if not configured |
+| `[30:49]` | 19 | Creation Date/Time | `YYYY-MM-DD HH:MM:SS` |
+
+#### Body Line (marker = `B`, one per piece requiring reprint)
+
+| Python Slice | Length | Field | Notes |
+|---|---|---|---|
+| `[0]` | 1 | Record marker | `B` |
+| `[1:11]` | 10 | Job ID | |
+| `[11:21]` | 10 | Mail Piece ID | |
+| `[21:23]` | 2 | Disposition Code | See table below |
+| `[23:42]` | 19 | Timestamp | `YYYY-MM-DD HH:MM:SS` |
+
+### JRF Disposition Codes
+
+| Code | Meaning |
+|------|---------|
+| `00` | Unread |
+| `01` | In Process |
+| `10` | Failed / Oversized / Voided |
+
+> These codes are specific to the JRF. JCF disposition codes (20/30/40) are different — see JCF section above.
+
+---
+
+## Audit Mode Files
+
+Audit Mode is used when AIMS verifies piece counts "on the fly" without a
+pre-loaded JAF checklist. Jobs are created in AIMS as barcodes are scanned.
+No pre-validation of recipient data occurs.
+
+Audit Mode JCF and JRF files use a **different structure** from Closed Loop mode:
+
+- **No H/B record markers** — records are identified by position only
+- **No Customer ID field**
+- **No address fields** (Full Name, Organization, Address Lines, etc.)
+- **Header line:** Job ID only (10 characters)
+- **Body line:** Job ID (10) + Piece ID (10) + Disposition Code (2) + Timestamp (19) + Counter block
+
+> In Audit Mode, the MailPiece ID length can be configured to be greater than 10 characters if required. (TB aims008, V4.0.2)
+
+> Audit Mode can generate JRF and JCF output files where AIMS is licensed to export files. (TB aims005, V3.1)
+
+---
+
+## Trigger Files
+
+AIMS uses trigger files to allow external systems (OMS) to remotely control jobs
+without a direct network connection. These are placed in the FileDrop folder.
+
+| Extension | Name | Purpose | Format |
+|---|---|---|---|
+| `.trf` | Trigger Reprint File | Remotely requests AIMS to generate a JRF for a job | Empty file named `JobId.trf` |
+| `.ldf` | Late Diverts File | Requests specific mailpieces be marked for Late Divert | `JobId.ldf` containing Mail Piece IDs, one per line (10 chars each) |
+| `.tcf` | Trigger Close File | Sent by OMS-500 to remotely close a job in AIMS | Empty file named `JobId.tcf` |
+
+> The `.tcf` file was added in AIMS V5.0 (TB aims009). It is sent by OMS-500 if the user forces a job closed in OMS-500 before it is closed in AIMS.
+
+> The `.ldf` file is an **input** trigger sent **to** AIMS — not an output report of diverted pieces. Late Divert functionality was first added in AIMS V3.0 (TB aims003).
+
+**Example `.ldf` file contents:**
+```
+0000000005
+0000000007
+0000000008
+```
+
+---
+
+## Additional Output File Types
+
+Beyond JAF/JCF/JRF, AIMS can generate several other output files:
+
+| Extension | Name | Created | Purpose |
+|---|---|---|---|
+| `.jpf` | Job Progress File | At regular intervals during a run | Shows mailpiece changes since the last JPF was written. Can be appended to the same file or generate a new file each time. Configured in OMS Configuration Wizard (page 3 of 8). |
+| `.jgf` | Job Good Envelopes File | At job close | Contains only the mailpieces that successfully reached their intended destination (including Hand Mailed pieces). |
+| `.jmf` | Job Missed Mailpieces File | At job close | Contains only the mailpieces never seen by AIMS at all (not processed, not hand-mailed). Configured in OMS Configuration Wizard (page 7 of 8). |
+| `.juf` | Job Update File | Input (not output) | Allows importing updated information for mailpieces already in AIMS. Implemented for specific customers (Belgium and Switzerland). |
+| `.err` | Error File | On JAF import failure | Created in the JAF import folder alongside the `.jaf` file. Contains the reason for the import failure. |
 
 ---
 
@@ -219,6 +439,3 @@ address_line_1, address_line_2, address_line_3, address_line_4,
 postal_code, user_field_1, user_field_2, user_field_3,
 full_format_pack_divert, parsed_at
 ```
-
-> ⚠️ The `customer_id` field may contain a hash/checksum value rather than a
-> traditional ID in some AIMS configurations. Verify with a real production JCF.
